@@ -502,7 +502,7 @@ function readPrefs() {
     categories: Array.prototype.map.call(document.querySelectorAll('#cats input:checked'), function (c) { return c.value; })
   };
 }
-var CHUNK = 8;
+var CHUNK = 6;
 function planJobs(cats, total) {
   var base = Math.floor(total / cats.length), extra = total - base * cats.length, jobs = [];
   cats.forEach(function (c) {

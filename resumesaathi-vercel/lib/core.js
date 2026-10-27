@@ -67,7 +67,9 @@ async function gemini(prompt, maxTokens = 8192, temperature = 0.7) {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { temperature, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
     };
+    // Keep 'thinking' minimal so answers come back fast (Gemini 3 thinks a lot by default).
     if (/2\.5-flash/.test(model)) body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    else body.generationConfig.thinkingConfig = { thinkingLevel: 'low' };
     for (const mode of modes) {
       const url = mode === 'vertex'
         ? 'https://aiplatform.googleapis.com/v1/publishers/google/models/' + model + ':generateContent?key=' + encodeURIComponent(key)
@@ -76,9 +78,12 @@ async function gemini(prompt, maxTokens = 8192, temperature = 0.7) {
       for (let attempt = 0; attempt < 2; attempt++) {
         let r;
         try {
-          r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(45000) });
+          r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(50000) });
         } catch (e) {
-          if (attempt === 1) throw new ApiErr(504, 'AI service se connect nahi ho paya (timeout/network). Dobara try karein.');
+          const nm = String((e && e.name) || 'Error') + (e && e.cause && e.cause.code ? '/' + e.cause.code : '');
+          console.error('Gemini fetch failed: ' + nm);
+          if (e && e.name === 'TimeoutError') throw new ApiErr(504, 'AI ne bahut der laga di (timeout). Dobara try karein; questions kam (10) rakhein.');
+          if (attempt === 1) throw new ApiErr(504, 'AI service se connect nahi ho paya (network: ' + nm + '). Dobara try karein.');
           await sleep(1000);
           continue;
         }
@@ -91,6 +96,7 @@ async function gemini(prompt, maxTokens = 8192, temperature = 0.7) {
           // Google's reason (status + message). It never contains resume content or the key.
           let reason = '';
           try { const ej = await r.json(); reason = clip((ej && ej.error && ej.error.message) || '', 200).replace(/key=[^\s&]+/gi, 'key=***'); } catch (e) { /* ignore */ }
+          if (r.status === 400 && body.generationConfig.thinkingConfig && /think/i.test(reason)) { delete body.generationConfig.thinkingConfig; continue; } // model doesn't support this thinking option
           console.error('Gemini (' + mode + ', ' + model + ') rejected request: HTTP ' + r.status + ' ' + reason);
           if (!firstStatus) firstStatus = r.status;
           reasons.push(model + ': HTTP ' + r.status + (reason ? ' - ' + reason : ''));
