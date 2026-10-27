@@ -176,7 +176,7 @@ dialog ul{padding-left:20px;color:#475569}
 <div class="app">
 
 <aside class="side">
-  <div class="brand" onclick="go('home')"><div class="logo"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 15 2 2 4-4"/></svg></div>Resume<b>Saathi</b> AI</div>
+  <div class="brand" onclick="go('home')"><div class="logo"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 15 2 2 4-4"/></svg></div><span>Resume<b>Saathi</b> AI</span></div>
   <div class="menu">
     <div class="mlabel">Workspace</div>
     <button class="nv active" data-nav="home" onclick="go('home')"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New Preparation</button>
@@ -191,7 +191,7 @@ dialog ul{padding-left:20px;color:#475569}
 
 <div class="main">
   <header class="tb">
-    <div class="mbrand"><div class="logo" style="width:30px;height:30px;border-radius:9px"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="m5 13 4 4L19 7"/></svg></div>Resume<b>Saathi</b></div>
+    <div class="mbrand"><div class="logo" style="width:30px;height:30px;border-radius:9px"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="m5 13 4 4L19 7"/></svg></div><span>Resume<b>Saathi</b></span></div>
     <h2 id="pageTitle">New Preparation</h2>
     <span class="pillfree">Free · AI practice tool</span>
   </header>
@@ -331,7 +331,7 @@ dialog ul{padding-left:20px;color:#475569}
     <div id="mockDone" class="card" style="display:none"></div>
   </section>
 
-  <div class="foot">ResumeSaathi AI · AI-generated practice content, verify before using · <a href="#" onclick="document.getElementById('privacy').showModal();return false">Privacy notice</a></div>
+  <div class="foot">ResumeSaathi AI · AI-generated practice content, verify before using · <a href="#" onclick="document.getElementById('privacy').showModal();return false">Privacy notice</a> · <a href="/api/health" target="_blank" rel="noopener">AI status check</a></div>
   </div>
 </div>
 </div>
@@ -379,13 +379,27 @@ function go(v) {
   window.scrollTo(0, 0);
 }
 
+var sleepMs = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+// Retries temporary problems (busy / rate limit / timeout / network) with waiting; never retries real errors (400/422...).
+async function apiRetry(path, body, tries) {
+  tries = tries || 3;
+  for (var i = 0; ; i++) {
+    try { return await api(path, body); }
+    catch (e) {
+      var temp = !e.status || e.status === 429 || e.status === 502 || e.status === 503 || e.status === 504;
+      if (!temp || i >= tries - 1) throw e;
+      await sleepMs(e.status === 429 ? 6000 * (i + 1) : 2000 * (i + 1));
+    }
+  }
+}
+function apiError(msg, status) { var e = new Error(msg); e.status = status; return e; }
 async function api(path, body) {
   var res, data;
   try {
     res = await fetch(path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
-  } catch (e) { throw new Error('Server se connect nahi ho paya. Internet check karein.'); }
-  try { data = await res.json(); } catch (e) { throw new Error(res.status === 504 ? 'Server time out ho gaya. Dobara try karein.' : 'Server ka jawab samajh nahi aaya.'); }
-  if (!res.ok) throw new Error(data.error || 'Kuch gadbad ho gayi.');
+  } catch (e) { throw apiError('Server se connect nahi ho paya. Internet check karein.', 0); }
+  try { data = await res.json(); } catch (e) { throw apiError((res.status === 504 || res.status === 502) ? 'Server time out ho gaya (Vercel function limit). Kam questions (10) chunkar dobara try karein; footer ke "AI status check" se connection dekh sakte hain.' : 'Server ka jawab samajh nahi aaya.', res.status); }
+  if (!res.ok) throw apiError(data.error || 'Kuch gadbad ho gayi.', res.status);
   return data;
 }
 
@@ -469,7 +483,7 @@ $('#genBtn').addEventListener('click', async function () {
   S.text = text;
   try {
     busy(true, 'AI aapka resume analyze kar raha hai...', 'Skills, education, projects nikaal rahe hain');
-    var d = await api('/api/analyze', { text: text });
+    var d = await apiRetry('/api/analyze', { text: text });
     S.profile = d.profile;
     renderProfile();
     busy(false); go('review');
@@ -502,7 +516,7 @@ function readPrefs() {
     categories: Array.prototype.map.call(document.querySelectorAll('#cats input:checked'), function (c) { return c.value; })
   };
 }
-var CHUNK = 6;
+var CHUNK = 4;
 function planJobs(cats, total) {
   var base = Math.floor(total / cats.length), extra = total - base * cats.length, jobs = [];
   cats.forEach(function (c) {
@@ -526,14 +540,27 @@ $('#confirmBtn').addEventListener('click', async function () {
   S.profile = profile; S.prefs = prefs;
   var jobs = planJobs(prefs.categories, prefs.count), done = 0;
   try {
-    busy(true, 'Aapke liye questions aur answers ban rahe hain...', '0 / ' + jobs.length + ' parts taiyaar · 20-60 second lag sakte hain');
-    var results = await pool(jobs, 3, async function (j) {
+    busy(true, 'Aapke liye questions aur answers ban rahe hain...', '0 / ' + jobs.length + ' parts taiyaar · 15-45 second lag sakte hain');
+    var runJob = async function (j) {
       try {
-        var d = await api('/api/questions', { profile: profile, category: j.category, n: j.n, part: j.part, parts: j.parts, role: prefs.role, level: prefs.level, jobDescription: prefs.jobDescription, language: prefs.language });
+        var d = await apiRetry('/api/questions', { profile: profile, category: j.category, n: j.n, part: j.part, parts: j.parts, role: prefs.role, level: prefs.level, jobDescription: prefs.jobDescription, language: prefs.language }, 2);
         return { ok: d };
-      } catch (e) { return { err: e.message }; }
-      finally { done++; $('#loadSub').textContent = done + ' / ' + jobs.length + ' parts taiyaar'; }
+      } catch (e) { return { err: e.message, status: e.status }; }
+    };
+    var results = await pool(jobs, 3, async function (j) {
+      var r = await runJob(j);
+      if (r.ok) { done++; $('#loadSub').textContent = done + ' / ' + jobs.length + ' parts taiyaar'; }
+      return r;
     });
+    // second pass: failed parts one by one (gives rate limits / busy servers time to recover)
+    for (var k = 0; k < results.length; k++) {
+      if (results[k].ok) continue;
+      if (results[k].status === 400 || results[k].status === 401 || results[k].status === 403) continue; // not temporary
+      $('#loadSub').textContent = done + ' / ' + jobs.length + ' parts taiyaar · baaki dobara try ho rahe hain...';
+      await sleepMs(3000);
+      var again = await runJob(jobs[k]);
+      if (again.ok) { results[k] = again; done++; $('#loadSub').textContent = done + ' / ' + jobs.length + ' parts taiyaar'; }
+    }
     var list = [], errs = [], fb = '';
     results.forEach(function (r) { if (r.ok) { list = list.concat(r.ok.questions); fb = fb || r.ok.fallbackMessage || ''; } else errs.push(r.err); });
     busy(false);
@@ -617,7 +644,7 @@ $('#mStart').addEventListener('click', async function () {
   var cfg = { role: role, level: $('#mLevel').value, language: $('#mLang').value, count: Number($('#mCount').value), jobDescription: (S.prefs && S.prefs.jobDescription) || '' };
   try {
     busy(true, 'Interviewer taiyaar ho raha hai...', '');
-    var d = await api('/api/mock/start', Object.assign({ profile: S.profile }, cfg));
+    var d = await apiRetry('/api/mock/start', Object.assign({ profile: S.profile }, cfg));
     S.mock = { cfg: cfg, qs: d.questions, i: 0, results: [], running: true, evaluated: false };
     if (d.fallbackMessage) toast(d.fallbackMessage.slice(0, 100));
     busy(false);
@@ -645,7 +672,7 @@ $('#mSubmit').addEventListener('click', async function () {
   try {
     busy(true, 'Aapka answer check ho raha hai...', '');
     var q = m.qs[m.i];
-    var d = await api('/api/mock/evaluate', Object.assign({ profile: S.profile, question: q.question, answer: ans }, m.cfg));
+    var d = await apiRetry('/api/mock/evaluate', Object.assign({ profile: S.profile, question: q.question, answer: ans }, m.cfg));
     busy(false);
     m.results.push({ q: q, answer: ans, r: d.result, skipped: false });
     m.evaluated = true; $('#mAns').disabled = true; $('#mSkip').style.display = 'none';

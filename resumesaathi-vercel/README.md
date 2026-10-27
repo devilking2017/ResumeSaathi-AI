@@ -7,6 +7,7 @@ Prepare Smarter. Interview Better. Upload a resume, get personalised interview q
 ```
 public/index.html      -> the whole website (SaaS-style, mobile friendly)
 api/*.js, api/mock/*.js -> Vercel serverless functions (Gemini calls happen here)
+api/health.js          -> open /api/health on your live site to check key, model and speed
 lib/core.js            -> shared prompts + Gemini integration (server only)
 vercel.json            -> function timeout (60s) + security headers
 ```
@@ -49,3 +50,13 @@ The error now shows Google's HTTP status and reason. Common fixes:
 - Make sure the key was pasted with no spaces/quotes in Vercel.
 - HTTP 404 (model not available): the server tries `gemini-3.8-flash`, then `gemini-flash-latest`, then `gemini-flash-lite-latest` (it also moves to the next model when one is busy/rate-limited). To force a model set `GEMINI_MODEL=<model name>` in Vercel (Google retires old models, e.g. gemini-2.5-flash is closed to new users).
 - Environment variable changes only apply after a new deployment.
+
+## Timeout / "busy" problems - how to diagnose in 30 seconds
+
+1. Open `https://YOUR-SITE.vercel.app/api/health` (also linked as "AI status check" in the site footer).
+   - `"ok": true` -> Gemini works; `latencyMs` shows how fast it is.
+   - `"ok": false` -> the `message` field says exactly why (wrong key, model not available, busy, timeout).
+2. Server limits built in: each AI call gets at most 50 seconds in total (Vercel limit is 60s, set in `vercel.json`), the next model is tried automatically, and the browser retries busy/rate-limit/timeout errors by itself and then re-tries failed parts once.
+3. If you still see "Server time out ho gaya (Vercel function limit)": your Vercel plan may cap functions below 60s. In Vercel > Settings > Functions check the max duration / enable Fluid Compute, then redeploy. Choosing 10 questions also makes every call shorter.
+4. Free Gemini keys have per-minute limits. 30 questions create about 8 AI calls, so 10 questions is the safest on the free tier.
+5. Optional env vars: `GEMINI_MODEL` (force one model), `GEMINI_ATTEMPT_TIMEOUT_MS` (default 28000), `GEMINI_DEADLINE_MS` (default 50000).

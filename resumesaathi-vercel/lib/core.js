@@ -5,6 +5,14 @@
 // Models are tried in order until one is available for this key. Set GEMINI_MODEL to force a single model.
 const MODELS = process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
 let GOOD_MODEL = null; // remembers the model that worked
+const badUntil = {}; // model -> timestamp until which it is skipped after a failure
+const ATTEMPT_MS = Number(process.env.GEMINI_ATTEMPT_TIMEOUT_MS) || 28000; // max wait for ONE model
+const DEADLINE_MS = Number(process.env.GEMINI_DEADLINE_MS) || 50000; // total budget per request (vercel.json maxDuration is 60s)
+function thinkingFor(model) {
+  if (/2\.5/.test(model)) return { thinkingBudget: 0 };
+  if (/lite/.test(model)) return null;
+  return { thinkingLevel: 'low' }; // keep Gemini 3 'thinking' short so replies are fast
+}
 const EXPERIMENTAL = process.env.ENABLE_EXPERIMENTAL_LANGS === '1';
 
 // ---------- LANGUAGE SYSTEM (new language = add one line here) ----------
@@ -55,65 +63,75 @@ function parseJson(text) {
 async function gemini(prompt, maxTokens = 8192, temperature = 0.7) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new ApiErr(500, 'Server par GEMINI_API_KEY set nahi hai. Vercel > Settings > Environment Variables me add karke redeploy karein.');
+  const started = Date.now();
+  const base = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com';
+  const vertex = process.env.GEMINI_API_TYPE === 'vertex'; // only for Vertex AI keys
 
-  // Default endpoint = Google AI Studio. Use GEMINI_API_TYPE=vertex only if your key is a Vertex AI key.
-  const modes = process.env.GEMINI_API_TYPE === 'vertex' ? ['vertex'] : ['studio'];
-  const models = GOOD_MODEL ? [GOOD_MODEL] : MODELS;
+  // Order: last working model first; models that recently failed are skipped for a while.
+  let models = GOOD_MODEL ? [GOOD_MODEL].concat(MODELS.filter((m) => m !== GOOD_MODEL)) : MODELS.slice();
+  const healthy = models.filter((m) => !(badUntil[m] > Date.now()));
+  if (healthy.length) models = healthy;
+
   const reasons = [];
   let firstStatus = 0;
-
+  outer:
   for (const model of models) {
-    const body = {
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
-    };
-    // Keep 'thinking' minimal so answers come back fast (Gemini 3 thinks a lot by default).
-    if (/2\.5-flash/.test(model)) body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-    else body.generationConfig.thinkingConfig = { thinkingLevel: 'low' };
-    for (const mode of modes) {
-      const url = mode === 'vertex'
+    let useThinking = true;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const remaining = DEADLINE_MS - (Date.now() - started);
+      if (remaining < 3000) { reasons.push('time budget khatam'); firstStatus = firstStatus || 504; break outer; }
+      const body = {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
+      };
+      // Gemini 3.x works best (and can loop/stall) with non-default temperature, so only send it to 2.x models.
+      if (/gemini-2\./.test(model)) body.generationConfig.temperature = temperature;
+      const th = useThinking ? thinkingFor(model) : null;
+      if (th) body.generationConfig.thinkingConfig = th;
+      const url = vertex
         ? 'https://aiplatform.googleapis.com/v1/publishers/google/models/' + model + ':generateContent?key=' + encodeURIComponent(key)
-        : 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
-      const headers = mode === 'vertex' ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json', 'x-goog-api-key': key };
-      for (let attempt = 0; attempt < 2; attempt++) {
-        let r;
-        try {
-          r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(50000) });
-        } catch (e) {
-          const nm = String((e && e.name) || 'Error') + (e && e.cause && e.cause.code ? '/' + e.cause.code : '');
-          console.error('Gemini fetch failed: ' + nm);
-          if (e && e.name === 'TimeoutError') throw new ApiErr(504, 'AI ne bahut der laga di (timeout). Dobara try karein; questions kam (10) rakhein.');
-          if (attempt === 1) throw new ApiErr(504, 'AI service se connect nahi ho paya (network: ' + nm + '). Dobara try karein.');
-          await sleep(1000);
-          continue;
-        }
-        if ((r.status === 429 || r.status >= 500) && attempt === 0) { await sleep(2000); continue; }
-        if (!r.ok) {
-          // Google's reason (status + message). It never contains resume content or the key.
-          let reason = '';
-          try { const ej = await r.json(); reason = clip((ej && ej.error && ej.error.message) || '', 200).replace(/key=[^\s&]+/gi, 'key=***'); } catch (e) { /* ignore */ }
-          if (r.status === 400 && body.generationConfig.thinkingConfig && /think/i.test(reason)) { delete body.generationConfig.thinkingConfig; continue; } // model doesn't support this thinking option
-          console.error('Gemini (' + mode + ', ' + model + ') rejected request: HTTP ' + r.status + ' ' + reason);
-          if (!firstStatus) firstStatus = r.status;
-          reasons.push(model + ': HTTP ' + r.status + (reason ? ' - ' + reason : ''));
-          break; // next model
-        }
-        const j = await r.json();
-        const text = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [])
-          .map((p) => p.text || '').join('');
-        if (!text) throw new ApiErr(502, 'AI ne khali jawab diya (safety filter ho sakta hai). Dobara try karein.');
-        GOOD_MODEL = model;
-        return parseJson(text);
+        : base + '/v1beta/models/' + model + ':generateContent';
+      const headers = vertex ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json', 'x-goog-api-key': key };
+      let r;
+      try {
+        r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(Math.max(1000, Math.min(ATTEMPT_MS, remaining - 500))) });
+      } catch (e) {
+        const nm = String((e && e.name) || 'Error') + (e && e.cause && e.cause.code ? '/' + e.cause.code : '');
+        console.error('Gemini fetch failed (' + model + '): ' + nm);
+        reasons.push(model + ': timeout/network (' + nm + ')');
+        firstStatus = firstStatus || 504;
+        badUntil[model] = Date.now() + 90000;
+        break; // next model
       }
+      if (!r.ok) {
+        // Google's reason (status + message). It never contains resume content or the key.
+        let reason = '';
+        try { const ej = await r.json(); reason = clip((ej && ej.error && ej.error.message) || '', 200).replace(/key=[^\s&]+/gi, 'key=***'); } catch (e) { /* ignore */ }
+        if (r.status === 400 && th) { useThinking = false; continue; } // model may not support this thinking option -> retry once without it
+        if ((r.status === 429 || r.status >= 500) && models.length === 1 && attempt === 0) { await sleep(1500); continue; }
+        console.error('Gemini rejected request (' + model + '): HTTP ' + r.status + ' ' + reason);
+        firstStatus = firstStatus || r.status;
+        reasons.push(model + ': HTTP ' + r.status + (reason ? ' - ' + reason : ''));
+        badUntil[model] = Date.now() + (r.status === 404 ? 600000 : (r.status === 429 || r.status >= 500) ? 30000 : 0);
+        break; // next model
+      }
+      let j;
+      try { j = await r.json(); } catch (e) { reasons.push(model + ': jawab padh nahi paye'); firstStatus = firstStatus || 502; break; }
+      const text = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [])
+        .map((p) => p.text || '').join('');
+      if (!text) { reasons.push(model + ': khali jawab (safety filter?)'); firstStatus = firstStatus || 502; break; }
+      try { const out = parseJson(text); GOOD_MODEL = model; return out; }
+      catch (e) { reasons.push(model + ': adhura/galat JSON'); firstStatus = firstStatus || 502; break; }
     }
   }
-  let hint = 'API key aur model name check karein.';
-  if (firstStatus === 429) hint = 'Free API limit abhi poori ho gayi hai. 1 minute ruk kar dobara try karein.';
+  let hint = 'AI se jawab nahi mil paya. Dobara try karein.';
+  if (firstStatus === 504) hint = 'AI ne samay par jawab nahi diya. Dobara try karein; questions kam (10) rakhein.';
+  else if (firstStatus === 429) hint = 'Free API limit abhi poori ho gayi hai. 1 minute ruk kar dobara try karein.';
   else if (firstStatus >= 500) hint = 'Google ka AI server abhi busy hai. Thodi der baad dobara try karein.';
-  else if (firstStatus === 404) hint = 'Ye model aapki key ke liye available nahi hai. Vercel me GEMINI_MODEL ek available model par set karein (AI Studio me model list dekhein) aur Redeploy karein.';
+  else if (firstStatus === 404) hint = 'Ye model aapki key ke liye available nahi hai. Vercel me GEMINI_MODEL ek available model par set karein aur Redeploy karein.';
   else if (firstStatus === 401 || firstStatus === 403) hint = 'API key galat/disabled hai ya Generative Language API enable nahi hai. Key check karke Vercel me GEMINI_API_KEY update karein aur Redeploy karein.';
   else if (firstStatus === 400) hint = 'Key ya request valid nahi hai. Key dobara copy karein (aage-peeche space na ho).';
-  const code = firstStatus === 429 ? 429 : firstStatus >= 500 ? 503 : 502;
+  const code = firstStatus === 504 ? 504 : firstStatus === 429 ? 429 : firstStatus >= 500 ? 503 : 502;
   throw new ApiErr(code, hint + (reasons.length ? ' (Details -> ' + reasons.join(' | ') + ')' : ''));
 }
 
@@ -177,7 +195,34 @@ function qFields(q) {
 }
 
 // ---------- handlers (name -> async (body) => json) ----------
+let healthCache = null;
 const handlers = {
+  // Open  https://YOUR-SITE.vercel.app/api/health  in a browser to see exactly what is wrong (key, model, speed).
+  async health() {
+    if (healthCache && Date.now() - healthCache.at < 20000) return healthCache.out;
+    const t0 = Date.now();
+    const out = { keyPresent: !!process.env.GEMINI_API_KEY, endpoint: process.env.GEMINI_API_TYPE === 'vertex' ? 'vertex' : 'ai-studio', modelsTried: process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : MODELS, node: process.version };
+    if (!out.keyPresent) {
+      out.ok = false;
+      out.message = 'GEMINI_API_KEY Vercel me set nahi hai. Settings > Environment Variables me add karke Redeploy karein.';
+    } else {
+      try {
+        const r = await gemini('Return exactly this JSON: {"ok": true}', 256, 0);
+        out.ok = r && r.ok === true;
+        out.workingModel = GOOD_MODEL;
+        out.latencyMs = Date.now() - t0;
+        out.message = out.ok ? 'Sab theek hai. AI connection kaam kar raha hai.' : 'AI ne unexpected jawab diya.';
+        if (out.latencyMs > 15000) out.message += ' Dhyan dein: AI dheere jawab de raha hai, isliye 10 questions se shuru karein.';
+      } catch (e) {
+        out.ok = false;
+        out.latencyMs = Date.now() - t0;
+        out.message = e instanceof ApiErr ? e.message : 'Unexpected error';
+      }
+    }
+    healthCache = { at: Date.now(), out };
+    return out;
+  },
+
   async languages() {
     return { languages: LANGUAGES.map((l) => ({ code: l.code, label: l.label, status: (l.status === 'supported' || EXPERIMENTAL) ? 'supported' : 'planned' })) };
   },
@@ -220,7 +265,7 @@ LANGUAGE: Write "question", "answer", "whyAsked", "keyPoints", "followUp" and "m
 ${ctx(profile, b.jobDescription, b.role, b.level)}
 
 TASK: Create exactly ${n} interview questions for category "${c}". ${CAT_GUIDE[c]} ${partNote}
-Order from easy to challenging. Each answer: 70-150 words, first person, specific to THIS candidate's real profile.
+Order from easy to challenging. Each answer: 60-100 words, first person, specific to THIS candidate's real profile.
 Return JSON: {"questions":[{"question":"","answer":"","whyAsked":"why an interviewer asks this","keyPoints":["3-5 important points to include"],"followUp":"one possible follow-up question","missingInfoWarning":""}]}`;
     const r = await gemini(prompt, 8192, 0.7);
     const list = (Array.isArray(r.questions) ? r.questions : []).map(qFields).filter((q) => q.question && q.answer).map((q) => ({ ...q, category: c }));
