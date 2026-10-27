@@ -3,7 +3,7 @@
 // The Gemini API key is read from process.env.GEMINI_API_KEY and never reaches the browser.
 
 // Models are tried in order until one is available for this key. Set GEMINI_MODEL to force a single model.
-const MODELS = process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : ['gemini-3.8-flash', 'gemini-flash-latest'];
+const MODELS = process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
 let GOOD_MODEL = null; // remembers the model that worked
 const EXPERIMENTAL = process.env.ENABLE_EXPERIMENTAL_LANGS === '1';
 
@@ -87,11 +87,7 @@ async function gemini(prompt, maxTokens = 8192, temperature = 0.7) {
           await sleep(1000);
           continue;
         }
-        if (r.status === 429 || r.status >= 500) {
-          if (attempt === 0) { await sleep(2000); continue; }
-          if (r.status === 429) throw new ApiErr(429, 'Free API limit abhi poori ho gayi hai. 1 minute ruk kar dobara try karein.');
-          throw new ApiErr(503, 'AI service abhi busy hai. Thodi der baad try karein.');
-        }
+        if ((r.status === 429 || r.status >= 500) && attempt === 0) { await sleep(2000); continue; }
         if (!r.ok) {
           // Google's reason (status + message). It never contains resume content or the key.
           let reason = '';
@@ -112,10 +108,13 @@ async function gemini(prompt, maxTokens = 8192, temperature = 0.7) {
     }
   }
   let hint = 'API key aur model name check karein.';
-  if (firstStatus === 404) hint = 'Ye model aapki key ke liye available nahi hai. Vercel me GEMINI_MODEL ek available model par set karein (AI Studio me model list dekhein) aur Redeploy karein.';
+  if (firstStatus === 429) hint = 'Free API limit abhi poori ho gayi hai. 1 minute ruk kar dobara try karein.';
+  else if (firstStatus >= 500) hint = 'Google ka AI server abhi busy hai. Thodi der baad dobara try karein.';
+  else if (firstStatus === 404) hint = 'Ye model aapki key ke liye available nahi hai. Vercel me GEMINI_MODEL ek available model par set karein (AI Studio me model list dekhein) aur Redeploy karein.';
   else if (firstStatus === 401 || firstStatus === 403) hint = 'API key galat/disabled hai ya Generative Language API enable nahi hai. Key check karke Vercel me GEMINI_API_KEY update karein aur Redeploy karein.';
   else if (firstStatus === 400) hint = 'Key ya request valid nahi hai. Key dobara copy karein (aage-peeche space na ho).';
-  throw new ApiErr(502, 'AI service ne request reject ki. ' + hint + (reasons.length ? ' Details -> ' + reasons.join(' | ') : ''));
+  const code = firstStatus === 429 ? 429 : firstStatus >= 500 ? 503 : 502;
+  throw new ApiErr(code, hint + (reasons.length ? ' (Details -> ' + reasons.join(' | ') + ')' : ''));
 }
 
 // ---------- prompts ----------
