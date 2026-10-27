@@ -45,7 +45,7 @@ vercel dev
 The error now shows Google's HTTP status and reason. Common fixes:
 
 - Use a key from https://aistudio.google.com/apikey. Update `GEMINI_API_KEY` in Vercel and **Redeploy**.
-- The server tries the Google AI Studio endpoint first and then the Vertex AI express endpoint, and shows both error reasons. Force one with `GEMINI_API_TYPE=studio` or `GEMINI_API_TYPE=vertex`.
+- The server uses the Google AI Studio endpoint. Only if your key is a Vertex AI key set `GEMINI_API_TYPE=vertex`.
 - Make sure the key was pasted with no spaces/quotes in Vercel.
-- HTTP 404: set `GEMINI_MODEL=gemini-2.5-flash` in Vercel.
+- HTTP 404 (model not available): the server tries `gemini-3.8-flash`, then `gemini-flash-latest`. To force a model set `GEMINI_MODEL=<model name>` in Vercel (Google retires old models, e.g. gemini-2.5-flash is closed to new users).
 - Environment variable changes only apply after a new deployment.
