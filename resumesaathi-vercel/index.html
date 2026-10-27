@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>ResumeSaathi AI - Prepare Smarter. Interview Better.</title>
+<meta name="description" content="Upload your resume and get personalised interview questions, sample answers and an AI mock interview in English, Hindi and Hinglish.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232563eb'/%3E%3Cpath d='M20 32l8 8 16-16' stroke='white' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
+<style>
+:root{--blue:#1d4ed8;--blue2:#2563eb;--blue-soft:#eff6ff;--blue-line:#bfdbfe;--ink:#0f172a;--mute:#64748b;--line:#e5e9f0;--bg:#f6f8fc;--card:#fff;--ok:#047857;--warn:#b45309;--warn-bg:#fffbeb;--err:#b91c1c;--err-bg:#fef2f2;--r:14px;--side:248px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Devanagari",sans-serif;color:var(--ink);background:var(--bg);line-height:1.55;font-size:15.5px}
+button,input,select,textarea{font:inherit;color:inherit}
+.ic{width:19px;height:19px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---- layout ---- */
+.app{display:flex;min-height:100vh}
+.side{width:var(--side);background:#fff;border-right:1px solid var(--line);position:fixed;inset:0 auto 0 0;display:flex;flex-direction:column;padding:18px 14px;z-index:30}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.12rem;padding:4px 8px 18px;cursor:pointer;white-space:nowrap}
+.brand b{color:var(--blue2)}
+.logo{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,#3b82f6,#1e40af);display:grid;place-items:center;color:#fff;box-shadow:0 6px 14px rgba(37,99,235,.3)}
+.menu{display:flex;flex-direction:column;gap:3px}
+.mlabel{font-size:.7rem;font-weight:800;letter-spacing:.08em;color:#94a3b8;text-transform:uppercase;padding:14px 10px 6px}
+.nv{display:flex;align-items:center;gap:11px;border:0;background:none;padding:10px 12px;border-radius:10px;cursor:pointer;color:#475569;font-weight:600;text-align:left;width:100%}
+.nv:hover{background:#f1f5f9;color:var(--ink)}
+.nv.active{background:var(--blue-soft);color:var(--blue)}
+.nv.danger:hover{background:var(--err-bg);color:var(--err)}
+.sidefoot{margin-top:auto;border:1px solid var(--blue-line);background:linear-gradient(160deg,#eff6ff,#fff);border-radius:var(--r);padding:14px;font-size:.84rem;color:#475569}
+.sidefoot b{display:block;color:var(--blue);margin-bottom:3px}
+.main{margin-left:var(--side);flex:1;min-width:0}
+.tb{position:sticky;top:0;z-index:20;background:rgba(246,248,252,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);height:60px;display:flex;align-items:center;gap:12px;padding:0 24px}
+.tb h2{margin:0;font-size:1.05rem}
+.tb .mbrand{display:none}
+.pillfree{margin-left:auto;font-size:.76rem;font-weight:700;color:var(--blue);background:var(--blue-soft);border:1px solid var(--blue-line);padding:4px 11px;border-radius:99px;white-space:nowrap}
+.content{max-width:1000px;margin:0 auto;padding:24px 24px 60px}
+.bottom{display:none}
+.view{display:none}.view.active{display:block}
+
+/* ---- surfaces ---- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 30px rgba(30,64,175,.05);margin-bottom:18px}
+h1{font-size:clamp(1.9rem,5vw,3rem);line-height:1.12;margin:12px 0 10px;letter-spacing:-.025em}
+h1 em{font-style:normal;background:linear-gradient(90deg,#2563eb,#38bdf8);-webkit-background-clip:text;background-clip:text;color:transparent}
+h2.sec{margin:0 0 4px;font-size:1.25rem}
+h3{margin:0 0 8px;font-size:1.02rem}
+.hint{color:var(--mute);font-size:.84rem;font-weight:400}
+.hero{border-radius:22px;padding:30px 26px 26px;background:radial-gradient(600px 260px at 90% 0,#dbeafe,transparent 70%),linear-gradient(180deg,#fff,#f4f8ff);border:1px solid var(--blue-line);margin-bottom:18px}
+.pill{display:inline-flex;gap:6px;align-items:center;background:#fff;color:var(--blue);border:1px solid var(--blue-line);padding:5px 12px;border-radius:99px;font-size:.8rem;font-weight:700}
+.langs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
+.lc{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+.lc small{display:block;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;font-size:.68rem;margin-bottom:3px}
+.lc p{margin:0;color:#475569;font-size:.9rem}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 18px}
+.how div{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px}
+.how .n{width:28px;height:28px;border-radius:9px;background:var(--blue-soft);color:var(--blue);font-weight:800;display:grid;place-items:center;margin-bottom:8px}
+.how b{display:block}.how p{margin:3px 0 0;color:var(--mute);font-size:.88rem}
+
+.drop{border:2px dashed var(--blue-line);background:var(--blue-soft);border-radius:16px;padding:30px 16px;text-align:center;cursor:pointer;transition:.15s}
+.drop:hover,.drop.over{border-color:var(--blue2);background:#dbeafe}
+.drop .big{width:44px;height:44px;margin:0 auto 8px;color:var(--blue2);display:block}
+.drop strong{display:block}.drop span{color:var(--mute);font-size:.88rem}
+.fileok{display:none;align-items:center;gap:10px;margin-top:12px;background:#ecfdf5;border:1px solid #a7f3d0;color:var(--ok);padding:10px 14px;border-radius:12px;font-weight:600;word-break:break-all}
+.fileok.show{display:flex}
+details.alt{margin-top:14px}
+details.alt summary{cursor:pointer;color:var(--blue);font-weight:600}
+textarea,input[type=text],select{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;background:#fff;font-size:16px}
+textarea:focus,input:focus,select:focus{outline:3px solid #dbeafe;border-color:var(--blue2)}
+textarea{resize:vertical;min-height:90px}
+label.lbl{display:block;font-weight:700;font-size:.88rem;margin:14px 0 5px}
+.btn{border:0;border-radius:11px;padding:11px 18px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center;transition:.15s;font-size:.95rem}
+.btn.primary{background:linear-gradient(135deg,#3b82f6,var(--blue));color:#fff;box-shadow:0 6px 16px rgba(37,99,235,.28)}
+.btn.primary:hover{transform:translateY(-1px)}
+.btn.primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn.ghost{background:#fff;border:1px solid var(--line);color:#334155}
+.btn.ghost:hover{background:var(--blue-soft);border-color:var(--blue-line);color:var(--blue)}
+.btn.sm{padding:7px 12px;font-size:.84rem;border-radius:9px}
+.btn.block{width:100%;margin-top:18px;font-size:1.02rem;padding:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.chk{display:flex;align-items:center;gap:7px;border:1px solid var(--line);padding:8px 14px;border-radius:99px;cursor:pointer;font-weight:600;font-size:.9rem;user-select:none;background:#fff}
+.chk:has(input:checked){background:var(--blue-soft);border-color:var(--blue2);color:var(--blue)}
+.chk input{accent-color:var(--blue2)}
+.alert{border-radius:12px;padding:11px 14px;margin-top:14px;font-size:.9rem;display:none}
+.alert.show{display:block}
+.alert.err{background:var(--err-bg);color:var(--err);border:1px solid #fecaca}
+.alert.warn{background:var(--warn-bg);color:var(--warn);border:1px solid #fde68a}
+.alert.info{background:var(--blue-soft);color:var(--blue);border:1px solid var(--blue-line)}
+.steps{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.step{font-size:.78rem;font-weight:700;padding:4px 11px;border-radius:99px;background:#e9eef6;color:var(--mute)}
+.step.on{background:var(--blue2);color:#fff}
+.pf textarea{min-height:64px;font-size:15px}
+
+/* ---- results ---- */
+.tabs{display:flex;gap:6px;overflow-x:auto;margin:16px -2px 10px;padding:2px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 15px;cursor:pointer;font-weight:700;color:var(--mute);white-space:nowrap}
+.tab.active{background:var(--blue2);border-color:var(--blue2);color:#fff}
+.tab small{opacity:.8;margin-left:4px}
+.q{border:1px solid var(--line);border-radius:14px;margin:10px 0;background:#fff;overflow:hidden}
+.q.hide{display:none}
+.qh{width:100%;border:0;background:none;text-align:left;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;cursor:pointer}
+.qh:hover{background:#f8fafc}
+.num{background:var(--blue-soft);color:var(--blue);font-weight:800;border-radius:8px;min-width:30px;height:28px;display:grid;place-items:center;font-size:.85rem;flex:none}
+.qt{flex:1;font-weight:650}
+.badge{font-size:.68rem;font-weight:800;background:#eef2f7;color:var(--mute);padding:3px 8px;border-radius:99px;margin-bottom:4px;display:inline-block;text-transform:uppercase;letter-spacing:.05em}
+.chev{transition:.2s;color:var(--mute);margin-top:4px}
+.q.open .chev{transform:rotate(180deg)}
+.qb{display:none;padding:2px 18px 18px 58px;border-top:1px solid #f1f5f9}
+.q.open .qb{display:block}
+.qb h4{margin:14px 0 4px;font-size:.74rem;text-transform:uppercase;letter-spacing:.07em;color:var(--blue)}
+.qb p{margin:0}
+.ans{white-space:pre-wrap;background:var(--blue-soft);border:1px solid var(--blue-line);border-radius:12px;padding:12px 14px}
+.qb ul{margin:0;padding-left:20px}
+.wn{background:var(--warn-bg);border:1px solid #fde68a;color:var(--warn);border-radius:10px;padding:9px 12px;margin-top:12px;font-size:.88rem}
+.acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.bar2{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.disc{font-size:.84rem;color:var(--warn);background:var(--warn-bg);border:1px solid #fde68a;padding:10px 14px;border-radius:12px;margin-top:12px}
+.score{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:1.3rem;color:#fff;flex:none}
+.fb{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:16px;background:#fcfdff}
+.fbtop{display:flex;gap:14px;align-items:center}
+.prog{height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin:8px 0 16px}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--blue2),#38bdf8);transition:.3s}
+.qbig{font-size:1.2rem;font-weight:700;margin:6px 0 14px}
+#loader{position:fixed;inset:0;background:rgba(255,255,255,.88);display:none;place-items:center;z-index:80;text-align:center;padding:20px}
+#loader.show{display:grid}
+.spin{width:46px;height:46px;border:5px solid var(--blue-line);border-top-color:var(--blue2);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 14px}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(30px);background:#0f172a;color:#fff;padding:10px 18px;border-radius:99px;opacity:0;transition:.25s;z-index:90;pointer-events:none;font-size:.9rem;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%)}
+dialog{border:0;border-radius:18px;max-width:560px;width:calc(100% - 32px);padding:24px;box-shadow:0 20px 60px rgba(15,23,42,.3)}
+dialog::backdrop{background:rgba(15,23,42,.45)}
+dialog ul{padding-left:20px;color:#475569}
+.foot{color:var(--mute);font-size:.82rem;text-align:center;padding:6px 0 0}
+.foot a{color:var(--blue)}
+.mic.rec{background:var(--err-bg);color:var(--err);border-color:#fecaca}
+
+/* ---- tablet & mobile ---- */
+@media(max-width:900px){
+ .side{display:none}
+ .main{margin-left:0}
+ .tb{padding:0 14px;height:56px}
+ .tb .mbrand{display:flex;align-items:center;gap:8px;font-weight:800}
+ .tb .mbrand b{color:var(--blue2)}
+ .tb h2{display:none}
+ .content{padding:16px 14px 100px}
+ .bottom{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+ .bottom button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;font-size:.68rem;font-weight:700;color:#64748b;border-radius:10px;cursor:pointer}
+ .bottom button.active{color:var(--blue);background:var(--blue-soft)}
+ .bottom button.danger:active{color:var(--err)}
+}
+@media(max-width:700px){
+ body{font-size:15px}
+ .langs,.how,.grid2{grid-template-columns:1fr}
+ .hero{padding:22px 16px 18px;border-radius:18px}
+ .card{padding:16px;border-radius:16px}
+ .qb{padding-left:16px}
+ .btn.res{flex:1}
+}
+
+/* ---- print ---- */
+@media print{
+ .side,.tb,.bottom,.tabs,.acts,.btn,.noprint,.chev,#loader,#toast,.foot{display:none!important}
+ body{background:#fff}
+ .main{margin:0}.content{padding:0;max-width:none}
+ .view{display:none!important}#view-results{display:block!important}
+ .card{box-shadow:none;border:0;padding:0}
+ .q,.q.hide{display:block!important;break-inside:avoid;border:1px solid #999}
+ .qb{display:block!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="side">
+  <div class="brand" onclick="go('home')"><div class="logo"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 15 2 2 4-4"/></svg></div>Resume<b>Saathi</b> AI</div>
+  <div class="menu">
+    <div class="mlabel">Workspace</div>
+    <button class="nv active" data-nav="home" onclick="go('home')"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New Preparation</button>
+    <button class="nv" data-nav="results" onclick="go('results')"><svg class="ic" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>My Questions</button>
+    <button class="nv" data-nav="mock" onclick="go('mock')"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>Mock Interview</button>
+    <div class="mlabel">Account</div>
+    <button class="nv" onclick="document.getElementById('privacy').showModal()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Privacy</button>
+    <button class="nv danger" onclick="deleteSession()"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete session</button>
+  </div>
+  <div class="sidefoot"><b>Aapka data safe hai</b>Resume save nahi hota. Tab band karte hi sab delete.</div>
+</aside>
+
+<div class="main">
+  <header class="tb">
+    <div class="mbrand"><div class="logo" style="width:30px;height:30px;border-radius:9px"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="m5 13 4 4L19 7"/></svg></div>Resume<b>Saathi</b></div>
+    <h2 id="pageTitle">New Preparation</h2>
+    <span class="pillfree">Free · AI practice tool</span>
+  </header>
+
+  <div class="content">
+
+  <!-- HOME -->
+  <section id="view-home" class="view active">
+    <div class="hero">
+      <span class="pill">&#10024; AI Interview Coach for Indian Job Seekers</span>
+      <h1>Prepare <em>Smarter.</em><br>Interview Better.</h1>
+      <div class="langs">
+        <div class="lc"><small>English</small><p>Upload your resume and get interview questions and sample answers made from your own skills, projects and experience.</p></div>
+        <div class="lc"><small>हिन्दी</small><p>अपना रिज़्यूमे अपलोड करें और अपनी स्किल्स, प्रोजेक्ट्स व अनुभव के आधार पर इंटरव्यू के सवाल और नमूना जवाब पाएँ।</p></div>
+        <div class="lc"><small>Hinglish</small><p>Apna resume upload karo aur apni skills, projects aur experience ke basis par interview questions aur sample answers pao.</p></div>
+      </div>
+    </div>
+
+    <div class="how">
+      <div><span class="n">1</span><b>Resume upload</b><p>PDF ya DOCX upload karein</p></div>
+      <div><span class="n">2</span><b>Profile review</b><p>AI ne jo samjha use check karein</p></div>
+      <div><span class="n">3</span><b>Q&amp;A + Mock</b><p>Questions, answers aur mock interview</p></div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Apna Resume Upload Karein</h2>
+      <p class="hint" style="margin:0 0 12px">PDF ya DOCX, maximum 5 MB. Scanned (photo wale) PDF ke liye neeche text paste karein.</p>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload resume">
+        <svg class="ic big" viewBox="0 0 24 24"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <strong>Resume yahan drag &amp; drop karein ya tap karke chunein</strong>
+        <span>Supported: PDF, DOCX</span>
+        <input type="file" id="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+      </div>
+      <div class="fileok" id="fileok"></div>
+      <details class="alt">
+        <summary>Ya resume ka text yahan paste karein</summary>
+        <textarea id="paste" rows="8" placeholder="Resume ka poora text paste karein..." style="margin-top:8px"></textarea>
+        <div style="margin-top:8px"><button class="btn ghost sm" id="sampleBtn" type="button">Synthetic sample resume try karein</button></div>
+      </details>
+      <div class="alert err" id="homeErr"></div>
+      <div class="alert info" id="homeInfo"></div>
+      <button class="btn primary block" id="genBtn">Generate Interview Questions &rarr;</button>
+    </div>
+  </section>
+
+  <!-- REVIEW -->
+  <section id="view-review" class="view">
+    <div class="steps"><span class="step">1 Upload</span><span class="step on">2 Review &amp; Preferences</span><span class="step">3 Questions</span></div>
+    <div class="card">
+      <h2 class="sec">Aapka Extracted Profile</h2>
+      <p class="hint" style="margin:0 0 6px">AI ne jo samjha woh yahan hai. Galti ho to theek karein; jo cheez resume me nahi hai use na jodein (har line = ek item).</p>
+      <div class="pf" id="pf"></div>
+    </div>
+    <div class="card">
+      <h2 class="sec">Interview Preferences</h2>
+      <div class="grid2">
+        <div><label class="lbl" for="role">Target job role</label><input type="text" id="role" placeholder="e.g. Python Developer, Data Analyst"></div>
+        <div><label class="lbl" for="level">Experience level</label><select id="level"><option>Fresher</option><option>Entry-level</option><option>Experienced</option></select></div>
+      </div>
+      <label class="lbl" for="jd">Job description <span class="hint">(optional)</span></label>
+      <textarea id="jd" rows="4" placeholder="Job description paste karein for more targeted questions"></textarea>
+      <div class="grid2">
+        <div><label class="lbl" for="lang">Preferred language</label><select id="lang"></select></div>
+        <div><label class="lbl" for="count">Number of questions</label><select id="count"><option>10</option><option>20</option><option>30</option></select></div>
+      </div>
+      <label class="lbl">Question categories</label>
+      <div class="checks" id="cats">
+        <label class="chk"><input type="checkbox" value="HR" checked> HR</label>
+        <label class="chk"><input type="checkbox" value="Technical" checked> Technical</label>
+        <label class="chk"><input type="checkbox" value="Projects" checked> Projects</label>
+        <label class="chk"><input type="checkbox" value="Behavioral" checked> Behavioral</label>
+      </div>
+      <div class="alert warn" id="langWarn"></div>
+      <div class="alert err" id="revErr"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+        <button class="btn ghost res" onclick="go('home')">&larr; Back</button>
+        <button class="btn primary res" id="confirmBtn" style="flex:2">Confirm &amp; Generate</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="view-results" class="view">
+    <div class="steps noprint"><span class="step">1 Upload</span><span class="step">2 Review</span><span class="step on">3 Questions</span></div>
+    <div class="card">
+      <div class="bar2">
+        <div><h2 class="sec">Your Interview Preparation</h2><div class="hint" id="resSub"></div></div>
+        <div class="acts noprint" style="margin:0">
+          <button class="btn ghost sm" onclick="toggleAll(true)">Expand all</button>
+          <button class="btn ghost sm" onclick="toggleAll(false)">Collapse all</button>
+          <button class="btn ghost sm" onclick="window.print()">Print / Save PDF</button>
+          <button class="btn ghost sm" onclick="go('mock')">Mock Interview</button>
+          <button class="btn primary sm" onclick="newSession()">New session</button>
+        </div>
+      </div>
+      <div class="disc"><b>Dhyan dein:</b> Ye sab AI-generated practice examples hain. Ye guaranteed interview questions ya verified facts nahi hain. Answers ko apne asli experience ke hisaab se badlein aur [brackets] wali jagah apni sahi details bharein.</div>
+      <div class="alert warn" id="resWarn"></div>
+      <div class="tabs" id="tabs"></div>
+      <div id="qlist"></div>
+    </div>
+  </section>
+
+  <!-- MOCK -->
+  <section id="view-mock" class="view">
+    <div id="mockNoResume" class="card" style="display:none">
+      <h2 class="sec">Mock Interview</h2>
+      <p>Mock interview ke liye pehle apna resume upload karke profile review karein.</p>
+      <button class="btn primary" onclick="go('home')">Resume upload karein</button>
+    </div>
+    <div id="mockSetup" class="card" style="display:none">
+      <h2 class="sec">Mock Interview</h2>
+      <p class="hint" style="margin:0">AI ek real interviewer ki tarah aapke resume se sawal puchega. Type karein ya mic se bolein; phir AI score, feedback aur behtar answer dega.</p>
+      <div class="grid2">
+        <div><label class="lbl" for="mRole">Target job role</label><input type="text" id="mRole"></div>
+        <div><label class="lbl" for="mLevel">Experience level</label><select id="mLevel"><option>Fresher</option><option>Entry-level</option><option>Experienced</option></select></div>
+        <div><label class="lbl" for="mLang">Language</label><select id="mLang"></select></div>
+        <div><label class="lbl" for="mCount">Number of questions</label><select id="mCount"><option>5</option><option>8</option><option>10</option></select></div>
+      </div>
+      <div class="alert warn" id="mWarn"></div>
+      <div class="alert err" id="mErr"></div>
+      <button class="btn primary block" id="mStart">Start Mock Interview</button>
+    </div>
+    <div id="mockRun" class="card" style="display:none">
+      <div class="bar2"><b id="mProgTxt"></b><button class="btn ghost sm" onclick="endMock()">End interview</button></div>
+      <div class="prog"><i id="mProg" style="width:0"></i></div>
+      <span class="badge" id="mCat"></span>
+      <div class="qbig" id="mQ"></div>
+      <textarea id="mAns" rows="6" placeholder="Apna answer yahan likhein ya mic se bolein..."></textarea>
+      <div class="acts">
+        <button class="btn ghost sm mic" id="micBtn" type="button">&#127908; Speak</button>
+        <button class="btn primary" id="mSubmit">Submit Answer</button>
+        <button class="btn ghost" id="mSkip">Skip</button>
+      </div>
+      <div class="alert err" id="mRunErr"></div>
+      <div id="mFb"></div>
+    </div>
+    <div id="mockDone" class="card" style="display:none"></div>
+  </section>
+
+  <div class="foot">ResumeSaathi AI · AI-generated practice content, verify before using · <a href="#" onclick="document.getElementById('privacy').showModal();return false">Privacy notice</a></div>
+  </div>
+</div>
+</div>
+
+<nav class="bottom" aria-label="Main">
+  <button class="active" data-nav="home" onclick="go('home')"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Prepare</button>
+  <button data-nav="results" onclick="go('results')"><svg class="ic" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Questions</button>
+  <button data-nav="mock" onclick="go('mock')"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>Mock</button>
+  <button onclick="document.getElementById('privacy').showModal()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Privacy</button>
+  <button class="danger" onclick="deleteSession()"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete</button>
+</nav>
+
+<dialog id="privacy">
+  <h2 style="margin-top:0">Privacy Notice</h2>
+  <ul>
+    <li>Aapka resume kisi database ya file me permanently save nahi hota. Sab kuch sirf aapke browser tab ki memory me rehta hai.</li>
+    <li>Resume ka text AI se jawab banane ke liye server ke through Google Gemini API ko bheja jata hai. Server resume ka content log nahi karta.</li>
+    <li>API key sirf server par hoti hai, browser me nahi.</li>
+    <li>"Delete session" dabane ya tab band karne par aapka sara data hat jata hai.</li>
+    <li>Kripya Aadhaar, bank details jaise sensitive documents resume me na daalein.</li>
+  </ul>
+  <button class="btn primary" onclick="document.getElementById('privacy').close()">Samajh gaya</button>
+</dialog>
+
+<div id="loader"><div><div class="spin"></div><b id="loadMsg">AI kaam kar raha hai...</b><div class="hint" id="loadSub"></div></div></div>
+<div id="toast"></div>
+
+<script>
+// ---------- state (memory only, never saved) ----------
+var S = { text: '', profile: null, prefs: null, questions: [], langs: [], mock: null };
+var $ = function (s) { return document.querySelector(s); };
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function toast(m) { var t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(function () { t.classList.remove('show'); }, 2200); }
+function showAlert(id, msg) { var e = $(id); if (!e) return; e.textContent = msg || ''; e.classList.toggle('show', !!msg); }
+function busy(on, msg, sub) { $('#loader').classList.toggle('show', on); if (msg) $('#loadMsg').textContent = msg; $('#loadSub').textContent = sub || ''; }
+
+var TITLES = { home: 'New Preparation', review: 'Review & Preferences', results: 'My Questions', mock: 'Mock Interview' };
+function go(v) {
+  if (v === 'results' && !S.questions.length) { toast('Pehle questions generate karein.'); v = S.profile ? 'review' : 'home'; }
+  document.querySelectorAll('.view').forEach(function (e) { e.classList.toggle('active', e.id === 'view-' + v); });
+  var navKey = v === 'review' ? 'home' : v;
+  document.querySelectorAll('[data-nav]').forEach(function (b) { b.classList.toggle('active', b.dataset.nav === navKey); });
+  $('#pageTitle').textContent = TITLES[v] || '';
+  if (v === 'mock') prepareMock();
+  window.scrollTo(0, 0);
+}
+
+async function api(path, body) {
+  var res, data;
+  try {
+    res = await fetch(path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  } catch (e) { throw new Error('Server se connect nahi ho paya. Internet check karein.'); }
+  try { data = await res.json(); } catch (e) { throw new Error(res.status === 504 ? 'Server time out ho gaya. Dobara try karein.' : 'Server ka jawab samajh nahi aaya.'); }
+  if (!res.ok) throw new Error(data.error || 'Kuch gadbad ho gayi.');
+  return data;
+}
+
+// ---------- languages ----------
+async function loadLangs() {
+  try { S.langs = (await api('/api/languages')).languages; }
+  catch (e) { S.langs = [{ code: 'english', label: 'English', status: 'supported' }, { code: 'hindi_devanagari', label: 'हिन्दी (Devanagari)', status: 'supported' }, { code: 'hindi_roman', label: 'Hindi (Roman script)', status: 'supported' }, { code: 'hinglish', label: 'Hinglish', status: 'supported' }]; }
+  ['#lang', '#mLang'].forEach(function (sel) {
+    var el = $(sel);
+    var ok = S.langs.filter(function (l) { return l.status === 'supported'; });
+    var pl = S.langs.filter(function (l) { return l.status !== 'supported'; });
+    el.innerHTML = '<optgroup label="Tested &amp; supported">' + ok.map(function (l) { return '<option value="' + esc(l.code) + '">' + esc(l.label) + '</option>'; }).join('') + '</optgroup>' +
+      (pl.length ? '<optgroup label="Coming soon (not tested - English fallback)">' + pl.map(function (l) { return '<option value="' + esc(l.code) + '">' + esc(l.label) + '</option>'; }).join('') + '</optgroup>' : '');
+    el.addEventListener('change', function () { langNote(el.value, sel === '#lang' ? '#langWarn' : '#mWarn'); });
+  });
+}
+function langNote(code, alertId) {
+  var l = S.langs.find(function (x) { return x.code === code; });
+  showAlert(alertId, l && l.status !== 'supported' ? l.label + ' abhi tested nahi hai. Is language me result nahi milega, English me diya jayega.' : '');
+}
+
+// ---------- file reading ----------
+var SAMPLE = 'Rohan Verma\nB.Tech Computer Science, Sample Institute of Technology, 2025, CGPA 8.1\n\nSKILLS\nPython, SQL, HTML, CSS, JavaScript, React basics, Git, MySQL, Pandas\n\nPROJECTS\nStudent Attendance Tracker - Web app using React and a Python Flask backend with MySQL to record daily attendance and show monthly reports. Built the database design and the report page.\nSales Data Analysis - Used Python and Pandas to clean a public sales dataset and make charts to find top-selling products.\n\nINTERNSHIP\nWeb Development Intern, Sample Tech Pvt Ltd (Jun 2024 - Aug 2024) - Fixed UI bugs and built two responsive pages with React.\n\nCERTIFICATIONS\nPython for Everybody (online course)\n\nACHIEVEMENTS\nWon 2nd prize in college coding contest 2024\n\n(This is a synthetic sample resume for testing.)';
+
+async function readFile(file) {
+  var name = file.name.toLowerCase();
+  if (file.size === 0) throw new Error('Ye file khali hai.');
+  if (file.size > 5 * 1024 * 1024) throw new Error('File 5 MB se badi hai. Chhoti file upload karein.');
+  if (name.endsWith('.doc')) throw new Error('Purani .doc file support nahi hai. Kripya DOCX ya PDF me save karke upload karein.');
+  if (name.endsWith('.pdf')) {
+    if (!window.pdfjsLib) throw new Error('PDF reader load nahi hua (internet check karein) ya resume text paste karein.');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    try {
+      var pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      var out = '';
+      for (var i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+        var pg = await pdf.getPage(i); var c = await pg.getTextContent();
+        out += c.items.map(function (x) { return x.str; }).join(' ') + '\n';
+      }
+      return out;
+    } catch (e) { throw new Error('PDF khul nahi paayi. Wo kharab ya password-protected ho sakti hai.'); }
+  }
+  if (name.endsWith('.docx')) {
+    if (!window.mammoth) throw new Error('DOCX reader load nahi hua (internet check karein) ya resume text paste karein.');
+    try { return (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value; }
+    catch (e) { throw new Error('DOCX file padhi nahi ja saki. File kharab ho sakti hai.'); }
+  }
+  throw new Error('Sirf PDF ya DOCX file upload karein.');
+}
+
+async function handleFile(file) {
+  showAlert('#homeErr', ''); showAlert('#homeInfo', '');
+  $('#fileok').classList.remove('show');
+  if (!file) return;
+  try {
+    busy(true, 'Resume padh rahe hain...', '');
+    var t = (await readFile(file)).replace(/\s+\n/g, '\n').trim();
+    busy(false);
+    if (t.length < 60) { S.text = ''; throw new Error('Is file me text nahi mila. Ye scanned/photo wala PDF ho sakta hai (OCR available nahi hai). Kripya DOCX upload karein ya text paste karein.'); }
+    S.text = t; $('#paste').value = '';
+    $('#fileok').textContent = '✔ ' + file.name + ' (' + t.length + ' characters padhe gaye)';
+    $('#fileok').classList.add('show');
+  } catch (e) { busy(false); showAlert('#homeErr', e.message); }
+}
+
+var drop = $('#drop'), fileIn = $('#file');
+drop.addEventListener('click', function () { fileIn.click(); });
+drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileIn.click(); } });
+fileIn.addEventListener('change', function () { handleFile(fileIn.files[0]); fileIn.value = ''; });
+['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+drop.addEventListener('drop', function (e) { handleFile(e.dataTransfer.files[0]); });
+$('#sampleBtn').addEventListener('click', function () { $('#paste').value = SAMPLE; S.text = ''; $('#fileok').classList.remove('show'); showAlert('#homeInfo', 'Synthetic sample resume bhar diya gaya hai. Ab "Generate Interview Questions" dabayein.'); });
+
+// ---------- step 1: analyze ----------
+$('#genBtn').addEventListener('click', async function () {
+  showAlert('#homeErr', '');
+  var text = ($('#paste').value.trim() || S.text || '').trim();
+  if (!text) return showAlert('#homeErr', 'Pehle resume upload karein ya text paste karein.');
+  if (text.length < 60) return showAlert('#homeErr', 'Resume me bahut kam text hai. Poora resume daalein.');
+  S.text = text;
+  try {
+    busy(true, 'AI aapka resume analyze kar raha hai...', 'Skills, education, projects nikaal rahe hain');
+    var d = await api('/api/analyze', { text: text });
+    S.profile = d.profile;
+    renderProfile();
+    busy(false); go('review');
+  } catch (e) { busy(false); showAlert('#homeErr', e.message); }
+});
+
+var PF = [['name', 'Name', 0], ['headline', 'Headline / Title', 0], ['skills', 'Skills', 1], ['education', 'Education', 1], ['experience', 'Work experience / Internships', 1], ['projects', 'Projects', 1], ['certifications', 'Certifications', 1], ['achievements', 'Achievements', 1]];
+function renderProfile() {
+  var p = S.profile;
+  $('#pf').innerHTML = PF.map(function (f) {
+    var v = f[2] ? (p[f[0]] || []).join('\n') : (p[f[0]] || '');
+    var empty = !v ? '<span class="hint"> — resume me nahi mila</span>' : '';
+    return '<label class="lbl" for="pf_' + f[0] + '">' + f[1] + empty + '</label><textarea id="pf_' + f[0] + '" data-k="' + f[0] + '" data-list="' + f[2] + '" rows="' + (f[2] ? 3 : 1) + '">' + esc(v) + '</textarea>';
+  }).join('');
+}
+function readProfile() {
+  var p = {};
+  document.querySelectorAll('#pf textarea').forEach(function (t) {
+    p[t.dataset.k] = t.dataset.list === '1' ? t.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean) : t.value.trim();
+  });
+  p.summary = (S.profile && S.profile.summary) || '';
+  return p;
+}
+
+// ---------- step 2: generate questions (small parallel chunks => fast, avoids timeouts) ----------
+function readPrefs() {
+  return {
+    role: $('#role').value.trim(), level: $('#level').value, jobDescription: $('#jd').value.trim(),
+    language: $('#lang').value, count: Number($('#count').value),
+    categories: Array.prototype.map.call(document.querySelectorAll('#cats input:checked'), function (c) { return c.value; })
+  };
+}
+var CHUNK = 8;
+function planJobs(cats, total) {
+  var base = Math.floor(total / cats.length), extra = total - base * cats.length, jobs = [];
+  cats.forEach(function (c) {
+    var n = base + (extra-- > 0 ? 1 : 0); if (n <= 0) return;
+    var parts = Math.ceil(n / CHUNK), left = n;
+    for (var p = 1; p <= parts; p++) { var k = Math.ceil(left / (parts - p + 1)); left -= k; jobs.push({ category: c, n: k, part: p, parts: parts }); }
+  });
+  return jobs;
+}
+async function pool(jobs, limit, worker) {
+  var out = new Array(jobs.length), idx = 0;
+  async function run() { while (idx < jobs.length) { var i = idx++; out[i] = await worker(jobs[i], i); } }
+  await Promise.all(Array.from({ length: Math.min(limit, jobs.length) }, run));
+  return out;
+}
+$('#confirmBtn').addEventListener('click', async function () {
+  showAlert('#revErr', '');
+  var profile = readProfile(), prefs = readPrefs();
+  if (!prefs.role) return showAlert('#revErr', 'Target job role likhein (jaise "Data Analyst").');
+  if (!prefs.categories.length) return showAlert('#revErr', 'Kam se kam ek category chunein.');
+  S.profile = profile; S.prefs = prefs;
+  var jobs = planJobs(prefs.categories, prefs.count), done = 0;
+  try {
+    busy(true, 'Aapke liye questions aur answers ban rahe hain...', '0 / ' + jobs.length + ' parts taiyaar · 20-60 second lag sakte hain');
+    var results = await pool(jobs, 3, async function (j) {
+      try {
+        var d = await api('/api/questions', { profile: profile, category: j.category, n: j.n, part: j.part, parts: j.parts, role: prefs.role, level: prefs.level, jobDescription: prefs.jobDescription, language: prefs.language });
+        return { ok: d };
+      } catch (e) { return { err: e.message }; }
+      finally { done++; $('#loadSub').textContent = done + ' / ' + jobs.length + ' parts taiyaar'; }
+    });
+    var list = [], errs = [], fb = '';
+    results.forEach(function (r) { if (r.ok) { list = list.concat(r.ok.questions); fb = fb || r.ok.fallbackMessage || ''; } else errs.push(r.err); });
+    busy(false);
+    if (!list.length) return showAlert('#revErr', errs[0] || 'Questions nahi ban paye. Dobara try karein.');
+    list.forEach(function (q, i) { q.id = 'q' + (i + 1); });
+    S.questions = list;
+    S.fallbackMessage = fb || (errs.length ? 'Kuch questions nahi ban paye (' + errs[0] + ') — baaki taiyaar hain. Aap dobara generate kar sakte hain.' : '');
+    activeTab = 'All'; renderResults(); go('results');
+  } catch (e) { busy(false); showAlert('#revErr', e.message); }
+});
+
+// ---------- results ----------
+var activeTab = 'All';
+function renderResults() {
+  var cats = ['All'].concat(S.prefs.categories.filter(function (c) { return S.questions.some(function (q) { return q.category === c; }); }));
+  $('#resSub').textContent = (S.prefs.role || '') + ' · ' + S.prefs.level + ' · ' + S.questions.length + ' practice questions';
+  showAlert('#resWarn', S.fallbackMessage || '');
+  $('#tabs').innerHTML = cats.map(function (c) {
+    var n = c === 'All' ? S.questions.length : S.questions.filter(function (q) { return q.category === c; }).length;
+    return '<button class="tab' + (c === activeTab ? ' active' : '') + '" data-tab="' + c + '">' + c + '<small>' + n + '</small></button>';
+  }).join('');
+  $('#qlist').innerHTML = S.questions.map(function (q, i) { return qHtml(q, i); }).join('');
+  applyTab();
+}
+function qHtml(q, i) {
+  return '<div class="q" data-id="' + esc(q.id) + '" data-cat="' + esc(q.category) + '">' +
+    '<button class="qh" data-act="toggle"><span class="num">' + (i + 1) + '</span><span class="qt"><span class="badge">' + esc(q.category) + '</span><br>' + esc(q.question) + '</span><svg class="ic chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>' +
+    '<div class="qb">' +
+    (q.missingInfoWarning ? '<div class="wn"><b>Resume me ye jaankari kam hai:</b> ' + esc(q.missingInfoWarning) + '</div>' : '') +
+    '<h4>Sample answer (practice example)</h4><p class="ans">' + esc(q.answer) + '</p>' +
+    '<div class="acts"><button class="btn ghost sm" data-act="copy">Copy answer</button><button class="btn ghost sm" data-act="regen">&#8635; Regenerate answer</button></div>' +
+    '<h4>Interviewer ye kyun puchta hai</h4><p>' + esc(q.whyAsked) + '</p>' +
+    '<h4>Important points to include</h4><ul>' + q.keyPoints.map(function (k) { return '<li>' + esc(k) + '</li>'; }).join('') + '</ul>' +
+    '<h4>Possible follow-up question</h4><p>' + esc(q.followUp) + '</p>' +
+    '</div></div>';
+}
+function applyTab() {
+  document.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === activeTab); });
+  document.querySelectorAll('#qlist .q').forEach(function (e) { e.classList.toggle('hide', activeTab !== 'All' && e.dataset.cat !== activeTab); });
+}
+function toggleAll(open) { document.querySelectorAll('#qlist .q:not(.hide)').forEach(function (e) { e.classList.toggle('open', open); }); }
+$('#tabs').addEventListener('click', function (e) { var t = e.target.closest('.tab'); if (t) { activeTab = t.dataset.tab; applyTab(); } });
+
+function copyText(t) {
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t).then(function () { toast('Copy ho gaya ✔'); });
+  var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select();
+  try { document.execCommand('copy'); toast('Copy ho gaya ✔'); } catch (e) { toast('Copy nahi ho paya'); }
+  a.remove();
+}
+$('#qlist').addEventListener('click', async function (e) {
+  var b = e.target.closest('[data-act]'); if (!b) return;
+  var box = b.closest('.q'); var q = S.questions.find(function (x) { return x.id === box.dataset.id; });
+  if (b.dataset.act === 'toggle') box.classList.toggle('open');
+  else if (b.dataset.act === 'copy') copyText(q.answer);
+  else if (b.dataset.act === 'regen') {
+    b.disabled = true; var old = b.innerHTML; b.textContent = 'Ban raha hai...';
+    try {
+      var d = await api('/api/regenerate', { profile: S.profile, question: { category: q.category, question: q.question, answer: q.answer }, role: S.prefs.role, level: S.prefs.level, jobDescription: S.prefs.jobDescription, language: S.prefs.language });
+      Object.assign(q, d.result);
+      var i = S.questions.indexOf(q);
+      var tmp = document.createElement('div'); tmp.innerHTML = qHtml(q, i);
+      var nb = tmp.firstChild; nb.classList.add('open'); if (box.classList.contains('hide')) nb.classList.add('hide');
+      box.replaceWith(nb); toast('Naya answer taiyaar ✔');
+    } catch (err) { b.disabled = false; b.innerHTML = old; toast(err.message.slice(0, 90)); }
+  }
+});
+
+// ---------- mock interview ----------
+function prepareMock() {
+  var has = !!S.profile;
+  $('#mockNoResume').style.display = has ? 'none' : 'block';
+  if (!has) { ['mockSetup', 'mockRun', 'mockDone'].forEach(function (i) { $('#' + i).style.display = 'none'; }); return; }
+  if (S.mock && (S.mock.running || S.mock.finished)) return;
+  $('#mockSetup').style.display = 'block'; $('#mockRun').style.display = 'none'; $('#mockDone').style.display = 'none';
+  if (S.prefs) { $('#mRole').value = $('#mRole').value || S.prefs.role; $('#mLevel').value = S.prefs.level; $('#mLang').value = S.prefs.language; langNote(S.prefs.language, '#mWarn'); }
+}
+$('#mStart').addEventListener('click', async function () {
+  showAlert('#mErr', '');
+  var role = $('#mRole').value.trim();
+  if (!role) return showAlert('#mErr', 'Target job role likhein.');
+  var cfg = { role: role, level: $('#mLevel').value, language: $('#mLang').value, count: Number($('#mCount').value), jobDescription: (S.prefs && S.prefs.jobDescription) || '' };
+  try {
+    busy(true, 'Interviewer taiyaar ho raha hai...', '');
+    var d = await api('/api/mock/start', Object.assign({ profile: S.profile }, cfg));
+    S.mock = { cfg: cfg, qs: d.questions, i: 0, results: [], running: true, evaluated: false };
+    if (d.fallbackMessage) toast(d.fallbackMessage.slice(0, 100));
+    busy(false);
+    $('#mockSetup').style.display = 'none'; $('#mockRun').style.display = 'block'; $('#mockDone').style.display = 'none';
+    showMockQ();
+  } catch (e) { busy(false); showAlert('#mErr', e.message); }
+});
+function showMockQ() {
+  var m = S.mock, q = m.qs[m.i]; m.evaluated = false;
+  $('#mProgTxt').textContent = 'Question ' + (m.i + 1) + ' of ' + m.qs.length;
+  $('#mProg').style.width = (m.i / m.qs.length * 100) + '%';
+  $('#mCat').textContent = q.category; $('#mQ').textContent = q.question;
+  $('#mAns').value = ''; $('#mAns').disabled = false; $('#mFb').innerHTML = ''; showAlert('#mRunErr', '');
+  $('#mSubmit').style.display = ''; $('#mSubmit').disabled = false; $('#mSkip').style.display = '';
+  $('#mSubmit').textContent = 'Submit Answer';
+}
+function scoreColor(s) { return s >= 7 ? '#059669' : s >= 4 ? '#d97706' : '#dc2626'; }
+$('#mSubmit').addEventListener('click', async function () {
+  var m = S.mock;
+  if (m.evaluated) { nextMock(); return; }
+  showAlert('#mRunErr', '');
+  var ans = $('#mAns').value.trim();
+  if (ans.length < 3) return showAlert('#mRunErr', 'Pehle apna answer likhein ya mic se bolein.');
+  stopMic();
+  try {
+    busy(true, 'Aapka answer check ho raha hai...', '');
+    var q = m.qs[m.i];
+    var d = await api('/api/mock/evaluate', Object.assign({ profile: S.profile, question: q.question, answer: ans }, m.cfg));
+    busy(false);
+    m.results.push({ q: q, answer: ans, r: d.result, skipped: false });
+    m.evaluated = true; $('#mAns').disabled = true; $('#mSkip').style.display = 'none';
+    var r = d.result;
+    $('#mFb').innerHTML = '<div class="fb"><div class="fbtop"><div class="score" style="background:' + scoreColor(r.score) + '">' + r.score + '/10</div><div><b>Feedback</b><div>' + esc(r.summary) + '</div></div></div>' +
+      (r.strengths.length ? '<h4 style="color:var(--ok);margin:14px 0 4px">&#10004; Strengths</h4><ul>' + r.strengths.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
+      (r.improvements.length ? '<h4 style="color:var(--warn);margin:14px 0 4px">&#9888; Improve karein</h4><ul>' + r.improvements.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
+      (r.missingInfoWarning ? '<div class="wn">' + esc(r.missingInfoWarning) + '</div>' : '') +
+      '<h4 style="color:var(--blue);margin:14px 0 4px">Behtar sample answer (practice example)</h4><p class="ans" style="margin:0">' + esc(r.betterAnswer) + '</p></div>';
+    $('#mSubmit').textContent = m.i + 1 >= m.qs.length ? 'Finish & See Report' : 'Next Question →';
+    $('#mFb').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (e) { busy(false); showAlert('#mRunErr', e.message); }
+});
+$('#mSkip').addEventListener('click', function () {
+  var m = S.mock; stopMic();
+  m.results.push({ q: m.qs[m.i], answer: '', r: null, skipped: true });
+  nextMock();
+});
+function nextMock() {
+  var m = S.mock; m.i++;
+  if (m.i >= m.qs.length) return endMock();
+  showMockQ(); window.scrollTo(0, 0);
+}
+function endMock() {
+  var m = S.mock; if (!m) return;
+  stopMic();
+  m.running = false; m.finished = true;
+  var done = m.results.filter(function (x) { return x.r; });
+  $('#mockRun').style.display = 'none'; $('#mockSetup').style.display = 'none';
+  var box = $('#mockDone'); box.style.display = 'block';
+  if (!done.length) {
+    box.innerHTML = '<h2 class="sec">Mock Interview khatam</h2><p>Koi answer evaluate nahi hua, isliye score nahi bana.</p><button class="btn primary" onclick="restartMock()">Dobara try karein</button>';
+    return;
+  }
+  var avg = done.reduce(function (a, x) { return a + x.r.score; }, 0) / done.length;
+  var tips = {}; done.forEach(function (x) { x.r.improvements.forEach(function (t) { tips[t] = 1; }); });
+  box.innerHTML = '<div class="fbtop"><div class="score" style="background:' + scoreColor(avg) + '">' + avg.toFixed(1) + '</div><div><h2 class="sec" style="margin:0">Mock Interview Report</h2><div class="hint">' + done.length + ' answers evaluate hue · ' + (m.results.length - done.length) + ' skip · Average score out of 10</div></div></div>' +
+    '<h3 style="margin-top:18px">Question-wise score</h3>' +
+    m.results.map(function (x, i) { return '<div class="fb" style="margin-top:8px;padding:10px 14px"><b>Q' + (i + 1) + '. ' + esc(x.q.question) + '</b><div class="hint">' + (x.r ? 'Score: ' + x.r.score + '/10 — ' + esc(x.r.summary) : 'Skipped / evaluate nahi hua') + '</div></div>'; }).join('') +
+    (Object.keys(tips).length ? '<h3 style="margin-top:18px">Aapko in cheezon par kaam karna chahiye</h3><ul>' + Object.keys(tips).slice(0, 8).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' : '') +
+    '<div class="disc">Ye AI ka practice feedback hai, real interview result ki guarantee nahi.</div>' +
+    '<div class="acts"><button class="btn primary" onclick="restartMock()">Naya Mock Interview</button><button class="btn ghost" onclick="go(\'home\')">Home</button></div>';
+}
+function restartMock() { S.mock = null; prepareMock(); }
+
+// ---------- voice input (browser feature, optional) ----------
+var rec = null;
+function stopMic() { if (rec) { try { rec.stop(); } catch (e) {} rec = null; } $('#micBtn').classList.remove('rec'); $('#micBtn').innerHTML = '&#127908; Speak'; }
+$('#micBtn').addEventListener('click', function () {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return showAlert('#mRunErr', 'Is browser me voice input available nahi hai (Chrome use karein). Aap type kar sakte hain.');
+  if (rec) return stopMic();
+  var code = S.mock ? S.mock.cfg.language : 'english';
+  rec = new SR(); rec.lang = (code === 'hindi_devanagari' || code === 'hindi_roman' || code === 'hinglish') ? 'hi-IN' : 'en-IN';
+  rec.continuous = true; rec.interimResults = false;
+  var base = $('#mAns').value;
+  rec.onresult = function (ev) { var t = ''; for (var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript + ' '; $('#mAns').value = (base ? base + ' ' : '') + t.trim(); };
+  rec.onerror = function () { stopMic(); showAlert('#mRunErr', 'Mic access nahi mila. Browser permission check karein.'); };
+  rec.onend = function () { stopMic(); };
+  rec.start(); $('#micBtn').classList.add('rec'); $('#micBtn').innerHTML = '&#9209; Stop';
+});
+
+// ---------- session control ----------
+function resetAll() {
+  S.text = ''; S.profile = null; S.prefs = null; S.questions = []; S.mock = null; activeTab = 'All'; stopMic();
+  $('#paste').value = ''; $('#fileok').classList.remove('show'); $('#qlist').innerHTML = ''; $('#pf').innerHTML = ''; $('#jd').value = ''; $('#role').value = ''; $('#mRole').value = '';
+  showAlert('#homeErr', ''); showAlert('#homeInfo', '');
+}
+function newSession() { resetAll(); go('home'); }
+function deleteSession() { resetAll(); go('home'); toast('Session delete ho gaya. Aapka data hata diya gaya ✔'); }
+
+loadLangs();
+</script>
+</body>
+</html>

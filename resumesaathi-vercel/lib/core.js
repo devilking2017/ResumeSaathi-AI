@@ -53,39 +53,59 @@ function parseJson(text) {
 async function gemini(prompt, maxTokens = 8192, temperature = 0.7) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new ApiErr(500, 'Server par GEMINI_API_KEY set nahi hai. Vercel > Settings > Environment Variables me add karke redeploy karein.');
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + MODEL + ':generateContent';
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { temperature, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
   };
   if (/2\.5-flash/.test(MODEL)) body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let r;
-    try {
-      r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(45000),
-      });
-    } catch (e) {
-      if (attempt === 1) throw new ApiErr(504, 'AI service se connect nahi ho paya (timeout/network). Dobara try karein.');
-      await sleep(1000);
-      continue;
+
+  // Default: try Google AI Studio endpoint first, then Vertex AI express endpoint if Google rejects the key there.
+  // Force one with GEMINI_API_TYPE=studio or GEMINI_API_TYPE=vertex.
+  const forced = process.env.GEMINI_API_TYPE;
+  const modes = forced === 'vertex' ? ['vertex'] : forced === 'studio' ? ['studio'] : ['studio', 'vertex'];
+  const reqFor = (mode) => mode === 'vertex'
+    ? { url: 'https://aiplatform.googleapis.com/v1/publishers/google/models/' + MODEL + ':generateContent?key=' + encodeURIComponent(key), headers: { 'Content-Type': 'application/json' } }
+    : { url: 'https://generativelanguage.googleapis.com/v1beta/models/' + MODEL + ':generateContent', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key } };
+
+  const reasons = [];
+  let firstStatus = 0;
+  for (const mode of modes) {
+    const { url, headers } = reqFor(mode);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let r;
+      try {
+        r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(45000) });
+      } catch (e) {
+        if (attempt === 1) throw new ApiErr(504, 'AI service se connect nahi ho paya (timeout/network). Dobara try karein.');
+        await sleep(1000);
+        continue;
+      }
+      if (r.status === 429 || r.status >= 500) {
+        if (attempt === 0) { await sleep(2000); continue; }
+        if (r.status === 429) throw new ApiErr(429, 'Free API limit abhi poori ho gayi hai. 1 minute ruk kar dobara try karein.');
+        throw new ApiErr(503, 'AI service abhi busy hai. Thodi der baad try karein.');
+      }
+      if (!r.ok) {
+        // Google's reason (status + message). It never contains resume content or the key.
+        let reason = '';
+        try { const ej = await r.json(); reason = clip((ej && ej.error && ej.error.message) || '', 200).replace(/key=[^\s&]+/gi, 'key=***'); } catch (e) { /* ignore */ }
+        console.error('Gemini (' + mode + ') rejected request: HTTP ' + r.status + ' ' + reason);
+        if (!firstStatus) firstStatus = r.status;
+        reasons.push(mode + ': HTTP ' + r.status + (reason ? ' - ' + reason : ''));
+        break; // try next mode
+      }
+      const j = await r.json();
+      const text = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [])
+        .map((p) => p.text || '').join('');
+      if (!text) throw new ApiErr(502, 'AI ne khali jawab diya (safety filter ho sakta hai). Dobara try karein.');
+      return parseJson(text);
     }
-    if (r.status === 429 || r.status >= 500) {
-      if (attempt === 0) { await sleep(2000); continue; }
-      if (r.status === 429) throw new ApiErr(429, 'Free API limit abhi poori ho gayi hai. 1 minute ruk kar dobara try karein.');
-      throw new ApiErr(503, 'AI service abhi busy hai. Thodi der baad try karein.');
-    }
-    if (!r.ok) throw new ApiErr(502, 'AI service ne request reject ki. API key aur model name check karein.');
-    const j = await r.json();
-    const text = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [])
-      .map((p) => p.text || '').join('');
-    if (!text) throw new ApiErr(502, 'AI ne khali jawab diya (safety filter ho sakta hai). Dobara try karein.');
-    return parseJson(text);
   }
-  throw new ApiErr(503, 'AI service available nahi hai.');
+  let hint = 'API key aur model name check karein.';
+  if (firstStatus === 404) hint = 'Model naam galat/unavailable hai. Vercel me GEMINI_MODEL=gemini-2.5-flash try karein.';
+  else if (firstStatus === 401 || firstStatus === 403) hint = 'API key galat/disabled hai ya Generative Language API enable nahi hai. Key ko Google AI Studio me check karein, Vercel me GEMINI_API_KEY update karke Redeploy karein.';
+  else if (firstStatus === 400) hint = 'Key ya request valid nahi hai. Key ko dobara copy karein (aage-peeche space na ho).';
+  throw new ApiErr(502, 'AI service ne request reject ki. ' + hint + (reasons.length ? ' Details -> ' + reasons.join(' | ') : ''));
 }
 
 // ---------- prompts ----------

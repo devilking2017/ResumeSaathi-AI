@@ -39,3 +39,13 @@ vercel dev
 - Other Indian languages are listed as "coming soon" and fall back to English until tested. Add or enable one in `lib/core.js` (`LANGUAGES`).
 - "Print / Save PDF" uses the browser print dialog.
 - All generated content is AI practice material, not guaranteed interview questions or verified facts.
+
+## If you see "AI service ne request reject ki"
+
+The error now shows Google's HTTP status and reason. Common fixes:
+
+- Use a key from https://aistudio.google.com/apikey. Update `GEMINI_API_KEY` in Vercel and **Redeploy**.
+- The server tries the Google AI Studio endpoint first and then the Vertex AI express endpoint, and shows both error reasons. Force one with `GEMINI_API_TYPE=studio` or `GEMINI_API_TYPE=vertex`.
+- Make sure the key was pasted with no spaces/quotes in Vercel.
+- HTTP 404: set `GEMINI_MODEL=gemini-2.5-flash` in Vercel.
+- Environment variable changes only apply after a new deployment.
