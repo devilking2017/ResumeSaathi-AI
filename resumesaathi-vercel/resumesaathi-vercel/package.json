@@ -1,0 +1,10 @@
+{
+  "name": "resumesaathi-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ResumeSaathi AI - resume based interview questions, answers and mock interview (Gemini + Vercel)",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}
